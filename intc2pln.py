@@ -5,16 +5,17 @@ Created on Mon Feb 12 20:56:56 2018
 @author: M
 """
 
-#INTC to PLN
+#INTC to PLN simple graph
 
 import requests
 import datetime
 import numpy
+import matplotlib.pyplot as plt
 
 Url = "https://marketdata.websol.barchart.com/getHistory.json"
 ApiKey = "de845f7902386646116b91433e4c2c2e"
 
-Periods = ['1d','5d','1M','3M','6M','1Y','3Y']
+Periods = ['1d','5d','1M','3M','6M','1Y','2Y']
 
 CommonParameters = {
         'order' : 'asc'
@@ -29,7 +30,7 @@ PeriodParameters = {
         '3M' : {'type':'daily'   },
         '6M' : {'type':'daily'   },
         '1Y' : {'type':'daily'   },
-        '3Y' : {'type':'daily'   }}
+        '2Y' : {'type':'daily'   }}
 
 # we need to expand timespan to make sure we fetch all necessary data while dealing
 # with timezones
@@ -39,7 +40,7 @@ TimeDiffs = {'1d' : datetime.timedelta(days=2),
              '3M' : datetime.timedelta(days=3*31),
              '6M' : datetime.timedelta(days=6*31),
              '1Y' : datetime.timedelta(days=365),
-             '3Y' : datetime.timedelta(days=3*365),
+             '2Y' : datetime.timedelta(days=2*365),
             }
 
 MarketTimeDiffs = {'1d' : datetime.timedelta(days=1 + 2),
@@ -48,7 +49,7 @@ MarketTimeDiffs = {'1d' : datetime.timedelta(days=1 + 2),
              '3M' : datetime.timedelta(days=3*31 + 5),
              '6M' : datetime.timedelta(days=6*31 + 5),
              '1Y' : datetime.timedelta(days=365 + 7),
-             '3Y' : datetime.timedelta(days=4*365 + 14),
+             '2Y' : datetime.timedelta(days=2*365 + 7),
             }
 
 DeltaDatetimes = {'1d' : datetime.timedelta(minutes=15),
@@ -57,7 +58,7 @@ DeltaDatetimes = {'1d' : datetime.timedelta(minutes=15),
              '3M' : datetime.timedelta(days=1),
              '6M' : datetime.timedelta(days=1),
              '1Y' : datetime.timedelta(days=1),
-             '3Y' : datetime.timedelta(days=1),
+             '2Y' : datetime.timedelta(days=1),
             }
 
 Symbols = { 'Intel' : 'INTC',
@@ -72,7 +73,7 @@ Response_Status_Codes = {
 #TODO: add comment
 def GetStartDatetime(Period):
     StartDate = datetime.datetime.today() - MarketTimeDiffs[Period]
-    #+0100 add timezone information
+    #+0100 add Polish timezone information
     StartDateString = "{Year:04d}{Month:02d}{Day:02d}{Hour:02d}{Minute:02d}{Second:02d}+01:00".format(Year = StartDate.year, Month = StartDate.month, Day = StartDate.day,Hour = StartDate.hour, Minute = StartDate.minute,Second = StartDate.second)
     return StartDateString
 
@@ -88,7 +89,7 @@ def PrepareRequestParameters(Period,Symbol):
 #TODO: add comment
 def GetWebData(Period,Symbol):
     Parameters = PrepareRequestParameters(Period,Symbol)
-    print(Parameters)
+    #print(Parameters)
     Response = requests.get(Url, params=Parameters)
     return Response
 
@@ -109,9 +110,10 @@ def rreplace(S, Old, New, Occurrence):
     Li = S.rsplit(Old, Occurrence)
     return New.join(Li)
 
-#we need to convert timestamp from barchart format '2018-02-13T00:00:00-06:00'
-#into datetime.datetime acceptable format '2018-02-13T00:00:00:-0600'
+#we need to convert timestamp from Web API's barchart format '2018-02-13T00:00:00-06:00'
+#to datetime.datetime acceptable format '2018-02-13T00:00:00:-0600'
 def ConvertTimestamp(Timestamp):
+    #TODO: do it more pythonic
     if Timestamp[-6] == '+':
         ConvertedTimestamp = rreplace(Timestamp,"+",":+",1)
     else:
@@ -127,7 +129,7 @@ def GetMarketData(Period):
     IntcData = GetIntelData(Period)
     UsdPlnData = GetCurrencyData(Period)
     if (Response_Status_Codes['OK'] == IntcData.status_code) and (Response_Status_Codes['OK'] == UsdPlnData.status_code):
-        #TODO try..catch exception if json fails 
+        #TODO: try..catch exception if json fails 
         IntcData = IntcData.json()
         UsdPlnData = UsdPlnData.json()
 
@@ -144,30 +146,32 @@ def GetMarketData(Period):
         return None
 
 
-def FindBestFittingElement(np_index,start_data_index,data):
-    end_data_index = len(data)
-    return_done = false
+def FindBestFittingElement(np_index,start_data_index,data,np_dt):
+    end_data_index = len(data[0])
+    return_done = False
     
     for data_index in range(start_data_index,end_data_index):
-            #print("\tSprawdzam intc_index: ",intc_index," z chwili: ",Intc[0][intc_index])
-            if data[0][data_index] > NpDatetime[np_index]:
+            #print("\tSprawdzam data_index: ",data_index," z chwili: ",data[0][data_index])
+            if data[0][data_index] > np_dt[np_index]:
                 #wstaw wartosc z poprzeniej probki
                 if (data_index-1) >= 0:
                     return_np_data = data[1][data_index-1]
                     #mozemy isc do nastpnego elementu NpDatetime
                     return_data_index = data_index
+                    #print("Znalezlilsmy best fit data")
                     break
                 else:
-                    #print("Mamy za malo danych z gieldy")
+                    #print("Mamy za malo danych")
                     #print(dt_index)
                     return_np_data = 0;
                     return_data_index = data_index
                     break
 
-            elif data[0][data_index] == NpDatetime[np_index]:
+            elif data[0][data_index] == np_dt[np_index]:
                 return_np_data = data[1][data_index]
                 #mozemy isc do nastpnego elementu NpDatetime
                 return_data_index = data_index
+                #print("Znalezlilsmy best fit data - w punkt")
                 break
             else:
                 if data_index == end_data_index:
@@ -175,37 +179,36 @@ def FindBestFittingElement(np_index,start_data_index,data):
                     #fill rest of array with Intc[1][IntcLastIndex]
                     return_np_data = data[1][data_index]
                     return_data_index = data_index
-                    return_done = true
+                    return_done = True
+                    #print("doszli do konca tablicy")
                     break
                 
     else:
         #TODO: opisz ten case
         return_np_data = data[1][data_index]
         return_data_index = data_index
-        return_done = false
+        return_done = False
+        #print("wyszliszmy z petli for")
             
     return return_np_data,return_data_index,return_done
 
 def PreparePlotData(period,Intc,UsdPln):
-    #musimy okreslic rozmiar naszej tablicy
     EndDatetime = datetime.datetime.today()
     #Add timezone awareness UTC+1
     EndDatetime = EndDatetime.replace(tzinfo = datetime.timezone(datetime.timedelta(hours = 1)))
+
     StartDatetime = EndDatetime - TimeDiffs[period]
 
-    #numpy datetime data      
+    #numpy datetime data init
     NpDatetime = numpy.arange(StartDatetime, EndDatetime, DeltaDatetimes[period], dtype = datetime.datetime)
 
-    print("Datatime:")
-    print(StartDatetime)
-    print(EndDatetime)
-
-
-    #musimy wkopiowac pod odpowiednie indeksy w tablicy dane z Intc i UsdPln
-    #odpowiadające biezacemu dla danego indexu czasu 
+    #print("Datatime:")
+    #print(StartDatetime)
+    #print(EndDatetime)
 
     #lets do the magic...
-    #tworzymy puste tablice dla danych akcji i kursu walut
+    
+    #create and init NpIntc, NpUsdPln, NpIntc2Pln numpy arrays
     NpIntc = numpy.zeros(len(NpDatetime))
     NpIntc.fill(Intc[1][-1])
     
@@ -214,15 +217,17 @@ def PreparePlotData(period,Intc,UsdPln):
     
     NpIntc2Pln = numpy.zeros(len(NpDatetime))
 
-    #Intc[0][] - zawiera datetime'y
-    #Intc[1][] - zawiera kursy akcji
+    #Intc[0][] - contains datetime
+    #Intc[1][] - contains data
 
-    IntcIndex = 0
-    IntcLastIndex = len(Intc[0])
-    
+    intc_data_index = 0
+    intc_data_done = False
+    usdpln_data_index = 0
+    usdpln_data_done = False
+        
     for dt_index in range(len(NpDatetime)):
         #print("Iter dt_index: ", dt_index ," czas: ", NpDatetime[dt_index])
-        #print(dt)
+
         #przeszukujemy tablice datetime dla kursu Intc, czyli Intc[0] od zerowego
         #elementu w petli.
         #Sprawdzamy czy jego wartosc jest wieksza od aktualnie analizowane 'dt'. Jesli jest
@@ -231,119 +236,56 @@ def PreparePlotData(period,Intc,UsdPln):
         #bo oznacza ze mamy za malo danych z gieldy
 
         #Find the best fitting data
-        for intc_index in range(IntcIndex,IntcLastIndex):
-            #print("\tSprawdzam intc_index: ",intc_index," z chwili: ",Intc[0][intc_index])
-            if Intc[0][intc_index] > NpDatetime[dt_index]:
-                #wstaw wartosc z poprzeniej probki
-                if (intc_index-1) >= 0:
-                    NpIntc[dt_index] = Intc[1][intc_index-1]
-                    #mozemy isc do nastpnego elementu NpDatetime
-                    IntcIndex = intc_index
-                    break
-                else:
-                    #print("Mamy za malo danych z gieldy")
-                    #print(dt_index)
-                    NpIntc[dt_index] = 0;
-                    break
+        if intc_data_done == False:
+            NpIntc[dt_index],intc_data_index,intc_data_done = FindBestFittingElement(dt_index,intc_data_index,Intc,NpDatetime)
+        if usdpln_data_done == False:    
+            NpUsdPln[dt_index],usdpln_data_index,usdpln_data_done = FindBestFittingElement(dt_index,usdpln_data_index,UsdPln,NpDatetime)
 
-            elif Intc[0][intc_index] == NpDatetime[dt_index]:
-                NpIntc[dt_index] = Intc[1][intc_index]
-                #mozemy isc do nastpnego elementu NpDatetime
-                IntcIndex = intc_index
-                break
-            else:
-                if intc_index == IntcLastIndex:
-                    #no need to further processing
-                    #fill rest of array with Intc[1][IntcLastIndex]
-                    #TBD
-                    ...
-                
-        else:
-            #uzupelnij pozostale elementy w tablicy NpIntc wartoscia ostatniego elementu z Intc[1]
-            NpIntc[dt_index] = Intc[1][intc_index]
-        
-
+    #final step 
+    NpIntc2Pln = NpIntc * NpUsdPln
 
     return NpDatetime,NpIntc,NpUsdPln,NpIntc2Pln
-
-  
-
-
-
-    
-
-
-#Design:
-#    GUI sklada sie z wykresu przedwiajacego kurs z ostatniego dnia (1d)
-#    Nad wykresem sa guziki z nastepujacymi opcjami:1D,5D,1M,3M,6M,1Y,3Y,5Y
-#    Po kliknieciu guziki konstruowane jest zapytanie do barchart 
-#    o dane kursu intela oraz kurs usd2pln
-#    
-#    Potrzebuje funkcje, ktora tworzy zapytanie. jej jedynym parameterem jest okres i symbol.
-#    Od tego parametru beda zalezec paramtery zapytnia do barchrt.
-#    Dla pytan 1d i 5d bedziemy brac dane co 1h. dla pozostalych co 1dzien
-#    
-#    Potrzebne moduly:
-#        requests, json, datetime, numpy as np?, matplotlib.pyplot as plt
-#      
-#    Caly skrytp potem przewaliny py2exe na plik .exe i wsio
-#      
-# Funkcje:
-#     
-#    
-#     PrepareRequest - przygtowuje zapytania (okres i symbol)
-#     SendRequest - wysyla zapytanie
-#     GetData - wysyla zapytania
-#     PreparePlotData -na podstawie odp. z zapytan tworzy dane wynikowe 
-#     DrawPlotData - rysuje wykres
-#     
-#     i wsio:)
 
     
 #----Script Start----
 if __name__ == "__main__":
 
-    for period in ['1M']:#Periods:
-        print(period)
+    for period in ['6M']: #Periods:
+        #print(period)
 
         #Fetch data from stock exchange market using barchart Web APi
         Intc,UsdPln = GetMarketData(period)
 
         #prepare plot array
         NpDatetime,NpIntc,NpUsdPln,NpIntc2Pln = PreparePlotData(period,Intc,UsdPln)
-
-
         
-        print("Intc:")
-        print(Intc[0][0])
-        print(Intc[0][-1])
-        print(len(Intc[0]))
-        print("^UsdPln")
-        print(UsdPln[0][0])
-        print(UsdPln[0][-1])
-        print(len(UsdPln[0]))
-        print("\n\r")
-    
+        #print("Intc:")
+        #print(Intc[0][0])
+        #print(Intc[0][-1])
+        #print(len(Intc[0]))
+        #print("^UsdPln")
+        #print(UsdPln[0][0])
+        #print(UsdPln[0][-1])
+        #print(len(UsdPln[0]))
+        #print("\n\r")
 
-    
+        fig = plt.figure(1)
+        fig.suptitle("intc2pln", fontweight='bold')
+             
+        plt.subplot(211)
+        plt.plot(NpDatetime,NpIntc,'r')
+        plt.xlabel("Czas")
+        plt.ylabel("INTC(USD)")
+        plt.title("Kurs INTC w USD")
+        plt.grid(True,linestyle = '--')
 
-   
-#Include timezone info    
-#Unify time zone
-#Match records    
+        plt.subplot(212)
+        plt.plot(NpDatetime,NpIntc2Pln,'b')
+        plt.xlabel("Czas")
+        plt.ylabel("INTC(PLN)")
+        plt.title("Kurs INTC w PLN")
+        plt.grid(True,linestyle = '--')
+        
+        plt.show() 
+ 
 
-#Parameters = 
-#        'apikey' : ApiKey,
-#        'symbol' : 'INTC',
-#        'type' : 'daily',
-#        'startDate' : '20100101',
-#        'maxRecords' : '30',
-#        'order' : 'asc' }
-
-    #Parameters = PrepareRequestParameters('1d','INTC')
-    #print(Parameters)
-    
-    #Response = requests.get(Url, params=Parameters)
-
-# Print the content of the response (the data the server returned)
-    #print(Response.content)
