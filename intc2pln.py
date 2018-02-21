@@ -11,6 +11,7 @@ import requests
 import datetime
 import numpy
 import matplotlib.pyplot as plt
+import matplotlib.widgets as widget
 
 Url = "https://marketdata.websol.barchart.com/getHistory.json"
 ApiKey = "de845f7902386646116b91433e4c2c2e"
@@ -25,8 +26,9 @@ PeriodParameters = {
         '1d' : {'type':'minutes',
                 'interval' : '15'},
         '5d' : {'type':'minutes',
-                'interval' : '60'},
-        '1M' : {'type':'daily'   },
+                'interval' : '30'},
+        '1M' : {'type':'minutes',
+                'interval' : '30'},
         '3M' : {'type':'daily'   },
         '6M' : {'type':'daily'   },
         '1Y' : {'type':'daily'   },
@@ -34,7 +36,7 @@ PeriodParameters = {
 
 # we need to expand timespan to make sure we fetch all necessary data while dealing
 # with timezones
-TimeDiffs = {'1d' : datetime.timedelta(days=2),
+TimeDiffs = {'1d' : datetime.timedelta(days=1),
              '5d' : datetime.timedelta(days=5),
              '1M' : datetime.timedelta(days=31),
              '3M' : datetime.timedelta(days=3*31),
@@ -53,13 +55,16 @@ MarketTimeDiffs = {'1d' : datetime.timedelta(days=1 + 2),
             }
 
 DeltaDatetimes = {'1d' : datetime.timedelta(minutes=15),
-             '5d' : datetime.timedelta(hours=1),
-             '1M' : datetime.timedelta(days=1),
+             '5d' : datetime.timedelta(minutes=30),
+             '1M' : datetime.timedelta(minutes=30),
              '3M' : datetime.timedelta(days=1),
              '6M' : datetime.timedelta(days=1),
              '1Y' : datetime.timedelta(days=1),
              '2Y' : datetime.timedelta(days=1),
             }
+
+#TODO: Add plot params for each period
+PlotParameters = {}
 
 Symbols = { 'Intel' : 'INTC',
             'Currency' : '^USDPLN'}
@@ -89,7 +94,7 @@ def PrepareRequestParameters(Period,Symbol):
 #TODO: add comment
 def GetWebData(Period,Symbol):
     Parameters = PrepareRequestParameters(Period,Symbol)
-    #print(Parameters)
+    print(Parameters)
     Response = requests.get(Url, params=Parameters)
     return Response
 
@@ -140,7 +145,7 @@ def GetMarketData(Period):
         #Format timestamp info from string to datatime.datetime object with timezone awareness
         IntcData[0] = FormatDatetimeData(IntcData[0])
         UsdPlnData[0] = FormatDatetimeData(UsdPlnData[0])
-       
+  
         return IntcData, UsdPlnData
     else:
         return None
@@ -202,9 +207,9 @@ def PreparePlotData(period,Intc,UsdPln):
     #numpy datetime data init
     NpDatetime = numpy.arange(StartDatetime, EndDatetime, DeltaDatetimes[period], dtype = datetime.datetime)
 
-    #print("Datatime:")
-    #print(StartDatetime)
-    #print(EndDatetime)
+    print("Datatime:")
+    print(StartDatetime)
+    print(EndDatetime)
 
     #lets do the magic...
     
@@ -246,46 +251,80 @@ def PreparePlotData(period,Intc,UsdPln):
 
     return NpDatetime,NpIntc,NpUsdPln,NpIntc2Pln
 
+
+def UpdatePlot(Period):
+    #Fetch data from stock exchange market using barchart Web APi
+    Intc,UsdPln = GetMarketData(Period)
+
+    #prepare plot array
+    NpDatetime,NpIntc,NpUsdPln,NpIntc2Pln = PreparePlotData(Period,Intc,UsdPln)
+
+    ax[0].clear()
+    ax[0].set_ylabel("INTC(USD)")
+    ax[0].set_title("Kurs INTC w USD")
+    ax[0].grid(True,linestyle = '--')
+    ax[0].plot_date(NpDatetime,NpIntc,'r',xdate=True)
+
+    ax[1].clear()
+    ax[1].set_xlabel("Czas")
+    ax[1].set_ylabel("INTC(PLN)")
+    ax[1].set_title("Kurs INTC w PLN")
+    ax[1].grid(True,linestyle = '--')
+    ax[1].plot_date(NpDatetime,NpIntc2Pln,'b',xdate=True)
+
+    ax2.clear()
+    ax2.set_ylabel("^USDPLN")
+    ax2.plot_date(NpDatetime,NpUsdPln,'g:',xdate=True,linewidth=0.7)
+
+     
+    plt.draw()
+    return
+
+
+class ButtonClickProcessor(object):
+    def __init__(self, axes, label):
+        self.button = widget.Button(axes, label)
+        self.button.on_clicked(self.process)
+        return
+
+    def process(self, event):
+        UpdatePlot(self.button.label.get_text())
+        return
+
+
+def CreateButtons(Periods):
+
+    width = 1/len(Periods)
+    bx = []
+    buttons = []
+    left = 0.0
+    for index in range(len(Periods)):
+        bx.append(plt.axes([left, 0.0, width, 0.05]))
+        buttons.append(ButtonClickProcessor(bx[-1], Periods[index]))
+        left += width
+   
+    return bx,buttons
     
 #----Script Start----
 if __name__ == "__main__":
 
-    for period in ['6M']: #Periods:
-        #print(period)
+    #create plot figure
+    
+    fig, ax = plt.subplots(2,1)
+    fig.canvas.set_window_title('intc2pln')
+    plt.subplots_adjust(bottom=0.15)
+    ax2 = ax[1].twinx()
 
-        #Fetch data from stock exchange market using barchart Web APi
-        Intc,UsdPln = GetMarketData(period)
+    UpdatePlot(Periods[3])
+    
+    #create buttons
+    bx,buttons = CreateButtons(Periods)
+       
+    
+    plt.show() 
 
-        #prepare plot array
-        NpDatetime,NpIntc,NpUsdPln,NpIntc2Pln = PreparePlotData(period,Intc,UsdPln)
-        
-        #print("Intc:")
-        #print(Intc[0][0])
-        #print(Intc[0][-1])
-        #print(len(Intc[0]))
-        #print("^UsdPln")
-        #print(UsdPln[0][0])
-        #print(UsdPln[0][-1])
-        #print(len(UsdPln[0]))
-        #print("\n\r")
 
-        fig = plt.figure(1)
-        fig.suptitle("intc2pln", fontweight='bold')
-             
-        plt.subplot(211)
-        plt.plot(NpDatetime,NpIntc,'r')
-        plt.xlabel("Czas")
-        plt.ylabel("INTC(USD)")
-        plt.title("Kurs INTC w USD")
-        plt.grid(True,linestyle = '--')
 
-        plt.subplot(212)
-        plt.plot(NpDatetime,NpIntc2Pln,'b')
-        plt.xlabel("Czas")
-        plt.ylabel("INTC(PLN)")
-        plt.title("Kurs INTC w PLN")
-        plt.grid(True,linestyle = '--')
-        
-        plt.show() 
- 
+
+
 
