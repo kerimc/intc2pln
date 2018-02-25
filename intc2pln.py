@@ -34,8 +34,7 @@ PeriodParameters = {
         '1Y' : {'type':'daily'   },
         '2Y' : {'type':'daily'   }}
 
-# we need to expand timespan to make sure we fetch all necessary data while dealing
-# with timezones
+
 TimeDiffs = {'1d' : datetime.timedelta(days=1),
              '5d' : datetime.timedelta(days=5),
              '1M' : datetime.timedelta(days=31),
@@ -45,8 +44,10 @@ TimeDiffs = {'1d' : datetime.timedelta(days=1),
              '2Y' : datetime.timedelta(days=2*365),
             }
 
+# we need to expand timespan to make sure we fetch all necessary data while dealing
+# with timezones
 MarketTimeDiffs = {'1d' : datetime.timedelta(days=1 + 2),
-             '5d' : datetime.timedelta(days=5 + 3),
+             '5d' : datetime.timedelta(days=5 + 4),
              '1M' : datetime.timedelta(days=31 + 5),
              '3M' : datetime.timedelta(days=3*31 + 5),
              '6M' : datetime.timedelta(days=6*31 + 5),
@@ -54,6 +55,7 @@ MarketTimeDiffs = {'1d' : datetime.timedelta(days=1 + 2),
              '2Y' : datetime.timedelta(days=2*365 + 7),
             }
 
+#Plot resolution
 DeltaDatetimes = {'1d' : datetime.timedelta(minutes=15),
              '5d' : datetime.timedelta(minutes=30),
              '1M' : datetime.timedelta(minutes=30),
@@ -74,15 +76,31 @@ Response_Status_Codes = {
     'Bad Request ' : 400,
     'Internal Server Error' : 500}
 
+#Replace from last occurance in string    
+def rreplace(S, Old, New, Occurrence):
+    Li = S.rsplit(Old, Occurrence)
+    return New.join(Li)
 
-#TODO: add comment
+
+#Function returns start date in fixed string format for our stock market query
 def GetStartDatetime(Period):
     StartDate = datetime.datetime.today() - MarketTimeDiffs[Period]
     #+0100 add Polish timezone information
-    StartDateString = "{Year:04d}{Month:02d}{Day:02d}{Hour:02d}{Minute:02d}{Second:02d}+01:00".format(Year = StartDate.year, Month = StartDate.month, Day = StartDate.day,Hour = StartDate.hour, Minute = StartDate.minute,Second = StartDate.second)
+    StartDateString = "{Year:04d}{Month:02d}{Day:02d}{Hour:02d}{Minute:02d}{Second:02d}+01:00".format(Year = StartDate.year,
+                                                                                                      Month = StartDate.month,
+                                                                                                      Day = StartDate.day,
+                                                                                                      Hour = StartDate.hour,
+                                                                                                      Minute = StartDate.minute,
+                                                                                                      Second = StartDate.second)
+    #StartDateString = "{Year:04d}{Month:02d}{Day:02d}{Hour:02d}{Minute:02d}{Second:02d}".format(Year = StartDate.year,
+    #                                                                                            Month = StartDate.month,
+    #                                                                                            Day = StartDate.day,
+    #                                                                                            Hour = StartDate.hour,
+    #                                                                                            Minute = StartDate.minute,
+    #                                                                                            Second = StartDate.second)
     return StartDateString
 
-#TODO: add comment
+#Function gathers parameters for stock market query
 def PrepareRequestParameters(Period,Symbol):
     Request = {'apikey' : ApiKey}
     Request.update({'symbol' : Symbol})
@@ -91,29 +109,25 @@ def PrepareRequestParameters(Period,Symbol):
     Request.update(CommonParameters)
     return Request
 
-#TODO: add comment
+#Function sends stock market query and get response
 def GetWebData(Period,Symbol):
     Parameters = PrepareRequestParameters(Period,Symbol)
     print(Parameters)
     Response = requests.get(Url, params=Parameters)
     return Response
 
-#TODO: add comment
+#Wrapper for sending INTC query
 def GetIntelData(Period):
     return GetWebData(Period,Symbols['Intel'])
 
-#TODO: add comment
+#Wrapper for sending ^USDPLN query
 def GetCurrencyData(Period):
     return GetWebData(Period,Symbols['Currency'])
 
-#TODO: add comment
+#Function reshape data format into data[key][...] 
 def ExtractData(Keys,Data):
     return [[record[key] for record in Data] for key in Keys]
 
-#Replace from last occurance in string    
-def rreplace(S, Old, New, Occurrence):
-    Li = S.rsplit(Old, Occurrence)
-    return New.join(Li)
 
 #we need to convert timestamp from Web API's barchart format '2018-02-13T00:00:00-06:00'
 #to datetime.datetime acceptable format '2018-02-13T00:00:00:-0600'
@@ -126,10 +140,12 @@ def ConvertTimestamp(Timestamp):
     ConvertedTimestamp = rreplace(ConvertedTimestamp,":","",1)
     return ConvertedTimestamp  
 
-def FormatDatetimeData(Time):
+#Extract datetime from string
+#Time - array of datetime strings
+def ExtractDatetimeData(Time):
     return [datetime.datetime.strptime(ConvertTimestamp(item),'%Y-%m-%dT%H:%M:%S:%z') for item in Time]
 
-#TODO: add comment
+#Function gets requested stock exchange data from barchart.com using free getHistory API in .json format
 def GetMarketData(Period):
     IntcData = GetIntelData(Period)
     UsdPlnData = GetCurrencyData(Period)
@@ -143,8 +159,8 @@ def GetMarketData(Period):
         UsdPlnData = ExtractData(['timestamp','close'],UsdPlnData['results'])
 
         #Format timestamp info from string to datatime.datetime object with timezone awareness
-        IntcData[0] = FormatDatetimeData(IntcData[0])
-        UsdPlnData[0] = FormatDatetimeData(UsdPlnData[0])
+        IntcData[0] = ExtractDatetimeData(IntcData[0])
+        UsdPlnData[0] = ExtractDatetimeData(UsdPlnData[0])
   
         return IntcData, UsdPlnData
     else:
@@ -166,7 +182,7 @@ def FindBestFittingElement(np_index,start_data_index,data,np_dt):
                     #print("Znalezlilsmy best fit data")
                     break
                 else:
-                    #print("Mamy za malo danych")
+                    print("Mamy za malo danych")
                     #print(dt_index)
                     return_np_data = 0;
                     return_data_index = data_index
@@ -204,7 +220,7 @@ def PreparePlotData(period,Intc,UsdPln):
 
     StartDatetime = EndDatetime - TimeDiffs[period]
 
-    #numpy datetime data init
+    #numpy datetime array data init
     NpDatetime = numpy.arange(StartDatetime, EndDatetime, DeltaDatetimes[period], dtype = datetime.datetime)
 
     print("Datatime:")
@@ -215,9 +231,11 @@ def PreparePlotData(period,Intc,UsdPln):
     
     #create and init NpIntc, NpUsdPln, NpIntc2Pln numpy arrays
     NpIntc = numpy.zeros(len(NpDatetime))
+    #fill Intc numpy array with last value from INTC response
     NpIntc.fill(Intc[1][-1])
     
     NpUsdPln = numpy.zeros(len(NpDatetime))
+    #fill UsdPln numpy array with last value from ^USDPLN response
     NpUsdPln.fill(UsdPln[1][-1])
     
     NpIntc2Pln = numpy.zeros(len(NpDatetime))
@@ -266,13 +284,14 @@ def UpdatePlot(Period):
     ax[0].plot_date(NpDatetime,NpIntc,'r',xdate=True)
 
     ax[1].clear()
+    ax2.clear()
+
     ax[1].set_xlabel("Czas")
     ax[1].set_ylabel("INTC(PLN)")
     ax[1].set_title("Kurs INTC w PLN")
     ax[1].grid(True,linestyle = '--')
     ax[1].plot_date(NpDatetime,NpIntc2Pln,'b',xdate=True)
-
-    ax2.clear()
+    
     ax2.set_ylabel("^USDPLN")
     ax2.plot_date(NpDatetime,NpUsdPln,'g:',xdate=True,linewidth=0.7)
 
@@ -309,13 +328,12 @@ def CreateButtons(Periods):
 if __name__ == "__main__":
 
     #create plot figure
-    
     fig, ax = plt.subplots(2,1)
     fig.canvas.set_window_title('intc2pln')
     plt.subplots_adjust(bottom=0.15)
     ax2 = ax[1].twinx()
 
-    UpdatePlot(Periods[3])
+    UpdatePlot(Periods[1])
     
     #create buttons
     bx,buttons = CreateButtons(Periods)
