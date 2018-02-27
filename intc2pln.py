@@ -2,7 +2,17 @@
 """
 Created on Mon Feb 12 20:56:56 2018
 
-@author: M
+@author: Michal Duzinkiewicz
+"""
+
+
+"""
+Copyright © 2018 All market data provided by Barchart Solutions.
+
+BATS market data is at least 15-minutes delayed. Forex market data is at least 10-minutes delayed.
+AMEX, NASDAQ, NYSE and futures market data (CBOT, CME, COMEX and NYMEX) is end-of-day.
+Information is provided 'as is' and solely for informational purposes, not for trading purposes or advice, and is delayed.
+To see all exchange delays and terms of use, please see our disclaimer.
 """
 
 #INTC to PLN simple graph
@@ -172,17 +182,19 @@ def FindBestFittingElement(np_index,start_data_index,data,np_dt):
     return_done = False
     
     for data_index in range(start_data_index,end_data_index):
-            #print("\tSprawdzam data_index: ",data_index," z chwili: ",data[0][data_index])
+            #print("\tChecking data_index: ",data_index," from: ",data[0][data_index])
             if data[0][data_index] > np_dt[np_index]:
-                #wstaw wartosc z poprzeniej probki
+                #insert value from previous element
                 if (data_index-1) >= 0:
                     return_np_data = data[1][data_index-1]
-                    #mozemy isc do nastpnego elementu NpDatetime
+                    #ok, we're done. We can go to the next NpDatetime element
                     return_data_index = data_index
-                    #print("Znalezlilsmy best fit data")
+                    #print("Best fitting element found")
                     break
                 else:
-                    print("Mamy za malo danych")
+                    #We are asking for best fitting data element for datetime x
+                    #while our data datetimes are from later period
+                    #print("We don't enought data to find best fitting element")
                     #print(dt_index)
                     return_np_data = 0;
                     return_data_index = data_index
@@ -190,9 +202,9 @@ def FindBestFittingElement(np_index,start_data_index,data,np_dt):
 
             elif data[0][data_index] == np_dt[np_index]:
                 return_np_data = data[1][data_index]
-                #mozemy isc do nastpnego elementu NpDatetime
+                #ok, we're done. Exact match. We can go to the next NpDatetime element
                 return_data_index = data_index
-                #print("Znalezlilsmy best fit data - w punkt")
+                #print("Best fitting element found - exact match")
                 break
             else:
                 if data_index == end_data_index:
@@ -201,25 +213,30 @@ def FindBestFittingElement(np_index,start_data_index,data,np_dt):
                     return_np_data = data[1][data_index]
                     return_data_index = data_index
                     return_done = True
-                    #print("doszli do konca tablicy")
+                    #print("We're run out of data")
                     break
                 
     else:
-        #TODO: opisz ten case
+        #We should never get here, but if we somehow get here just insert data from last element
         return_np_data = data[1][data_index]
         return_data_index = data_index
         return_done = False
-        #print("wyszliszmy z petli for")
+        #print("End of data search loop")
             
     return return_np_data,return_data_index,return_done
 
+
+#Function prepares data for matplotlib pyplot
 def PreparePlotData(period,Intc,UsdPln):
+
+    #Determinate Start and End datetime:
     EndDatetime = datetime.datetime.today()
     #Add timezone awareness UTC+1
     EndDatetime = EndDatetime.replace(tzinfo = datetime.timezone(datetime.timedelta(hours = 1)))
 
     StartDatetime = EndDatetime - TimeDiffs[period]
 
+    #Prepare datetime axis
     #numpy datetime array data init
     NpDatetime = numpy.arange(StartDatetime, EndDatetime, DeltaDatetimes[period], dtype = datetime.datetime)
 
@@ -249,22 +266,15 @@ def PreparePlotData(period,Intc,UsdPln):
     usdpln_data_done = False
         
     for dt_index in range(len(NpDatetime)):
-        #print("Iter dt_index: ", dt_index ," czas: ", NpDatetime[dt_index])
+        #print("Iter dt_index: ", dt_index ," datetime: ", NpDatetime[dt_index])
 
-        #przeszukujemy tablice datetime dla kursu Intc, czyli Intc[0] od zerowego
-        #elementu w petli.
-        #Sprawdzamy czy jego wartosc jest wieksza od aktualnie analizowane 'dt'. Jesli jest
-        #ozanacza to ze wartosc akcji z !!poprzedniego!! element bedzie stanowila faktyczna cene akcji w chwili dt
-        #Corner case w ktorym okaze sie ze nasz element z petlo for ma index 0 i musimy brac -1 jest sytuacja bledna
-        #bo oznacza ze mamy za malo danych z gieldy
-
-        #Find the best fitting data
+        #Find the best fitting data for NpDatetime element
         if intc_data_done == False:
             NpIntc[dt_index],intc_data_index,intc_data_done = FindBestFittingElement(dt_index,intc_data_index,Intc,NpDatetime)
         if usdpln_data_done == False:    
             NpUsdPln[dt_index],usdpln_data_index,usdpln_data_done = FindBestFittingElement(dt_index,usdpln_data_index,UsdPln,NpDatetime)
 
-    #final step 
+    #calculate INTC value in PLN
     NpIntc2Pln = NpIntc * NpUsdPln
 
     return NpDatetime,NpIntc,NpUsdPln,NpIntc2Pln
@@ -333,7 +343,8 @@ if __name__ == "__main__":
     plt.subplots_adjust(bottom=0.15)
     ax2 = ax[1].twinx()
 
-    UpdatePlot(Periods[1])
+    #provide data to plot
+    UpdatePlot(Periods[3])
     
     #create buttons
     bx,buttons = CreateButtons(Periods)
