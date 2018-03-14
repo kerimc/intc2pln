@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import requests
 import datetime
+import requests
 import numpy
 import matplotlib.pyplot as plt
 import matplotlib.widgets as widget
@@ -78,9 +78,9 @@ RESPONSE_STATUS_CODES = {'OK': 200,
 
 
 # Replace from last occurance in string
-def rreplace(Str, Old, New, Occurrence):
-    Li = Str.rsplit(Old, Occurrence)
-    return New.join(Li)
+def rreplace(old_str, old, new, occurrence):
+    new_str = old_str.rsplit(old, occurrence)
+    return new.join(new_str)
 
 
 # Function returns start date in fixed string format for our stock market query
@@ -196,41 +196,41 @@ def find_best_fitting_element(np_index, start_data_index, data, np_dt):
     return_done = False
 
     for data_index in range(start_data_index, end_data_index):
-            # print("\tChecking data_index: ", data_index,
-            #      " from: ", data[0][data_index])
-            if data[0][data_index] > np_dt[np_index]:
-                # insert value from previous element
-                if (data_index-1) >= 0:
-                    return_np_data = data[1][data_index-1]
-                    # ok, we're done. We can go to the next NpDatetime element
-                    return_data_index = data_index
-                    # print("Best fitting element found")
-                    break
-                else:
-                    # We are asking for best fitting data element for datetime
-                    # x while our data datetimes are from later period
-                    # print("We don't enought data to find best fitting elem.")
-                    # print(dt_index)
-                    return_np_data = 0
-                    return_data_index = data_index
-                    break
-
-            elif data[0][data_index] == np_dt[np_index]:
-                return_np_data = data[1][data_index]
-                # ok, we're done. Exact match. We can go to the
-                # next NpDatetime element
+        # print("\tChecking data_index: ", data_index,
+        #      " from: ", data[0][data_index])
+        if data[0][data_index] > np_dt[np_index]:
+            # insert value from previous element
+            if (data_index-1) >= 0:
+                return_np_data = data[1][data_index-1]
+                # ok, we're done. We can go to the next NpDatetime element
                 return_data_index = data_index
-                # print("Best fitting element found - exact match")
+                # print("Best fitting element found")
                 break
             else:
-                if data_index == end_data_index:
-                    # no need to further processing
-                    # fill rest of array with Intc[1][IntcLastIndex]
-                    return_np_data = data[1][data_index]
-                    return_data_index = data_index
-                    return_done = True
-                    # print("We're run out of data")
-                    break
+                # We are asking for best fitting data element for datetime
+                # x while our data datetimes are from later period
+                # print("We don't enought data to find best fitting elem.")
+                # print(dt_index)
+                return_np_data = 0
+                return_data_index = data_index
+                break
+
+        elif data[0][data_index] == np_dt[np_index]:
+            return_np_data = data[1][data_index]
+            # ok, we're done. Exact match. We can go to the
+            # next NpDatetime element
+            return_data_index = data_index
+            # print("Best fitting element found - exact match")
+            break
+        else:
+            if data_index == end_data_index:
+                # no need to further processing
+                # fill rest of array with Intc[1][IntcLastIndex]
+                return_np_data = data[1][data_index]
+                return_data_index = data_index
+                return_done = True
+                # print("We're run out of data")
+                break
 
     else:
         # We should never get here, but if we somehow get here just insert
