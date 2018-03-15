@@ -353,9 +353,10 @@ def create_buttons(periods):
     bx = []
     buttons = []
     left = 0.0
-    for index in range(len(periods)):
+
+    for period in periods:
         bx.append(plt.axes([left, 0.0, width, 0.05]))
-        buttons.append(ButtonClickProcessor(bx[-1], periods[index]))
+        buttons.append(ButtonClickProcessor(bx[-1], period))
         left += width
 
     return bx, buttons
