@@ -191,14 +191,14 @@ def get_market_data(period):
         return None
 
 
-def find_best_fitting_element(np_index, start_data_index, data, np_dt):
+def find_best_fitting_element(start_data_index, data, np_dt):
     end_data_index = len(data[0])
     return_done = False
 
     for data_index in range(start_data_index, end_data_index):
         # print("\tChecking data_index: ", data_index,
         #      " from: ", data[0][data_index])
-        if data[0][data_index] > np_dt[np_index]:
+        if data[0][data_index] > np_dt:
             # insert value from previous element
             if (data_index-1) >= 0:
                 return_np_data = data[1][data_index-1]
@@ -215,7 +215,7 @@ def find_best_fitting_element(np_index, start_data_index, data, np_dt):
                 return_data_index = data_index
                 break
 
-        elif data[0][data_index] == np_dt[np_index]:
+        elif data[0][data_index] == np_dt:
             return_np_data = data[1][data_index]
             # ok, we're done. Exact match. We can go to the
             # next NpDatetime element
@@ -286,19 +286,17 @@ def prepare_plot_data(period, intc, usdpln):
     usdpln_data_index = 0
     usdpln_data_done = False
 
-    for dt_index in range(len(np_datetime)):
+    for dt_index, dt_value in enumerate(np_datetime):
         # print("Iter dt_index: ", dt_index,
-        #      " datetime: ", NpDatetime[dt_index])
+        #      " datetime: ", dt_value)
 
         # Find the best fitting data for NpDatetime element
         if intc_data_done is False:
             np_intc[dt_index], intc_data_index, intc_data_done = \
-                find_best_fitting_element(dt_index, intc_data_index,
-                                          intc, np_datetime)
+                find_best_fitting_element(intc_data_index, intc, dt_value)
         if usdpln_data_done is False:
             np_usdpln[dt_index], usdpln_data_index, usdpln_data_done = \
-                find_best_fitting_element(dt_index, usdpln_data_index,
-                                          usdpln, np_datetime)
+                find_best_fitting_element(usdpln_data_index, usdpln, dt_value)
 
     # calculate INTC value in PLN
     np_intc2pln = np_intc * np_usdpln
