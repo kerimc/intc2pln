@@ -79,12 +79,39 @@ RESPONSE_STATUS_CODES = {'OK': 200,
 
 # Replace from last occurance in string
 def rreplace(old_str, old, new, occurrence):
+    """
+    Replace from last occurance in string
+
+    Function rreplace returns a copy of the string in which the occurrences
+    of old have been replaced with new but function starts from the end of
+    the old_str.
+
+    Args:
+        old_str: input string
+        old: substring to be replaced
+        new: substring to be inserted
+        occurrence: number of old substring occurrences to be replaced
+
+    Returns:
+        Formatted string with replaced substrings
+    """
     new_str = old_str.rsplit(old, occurrence)
     return new.join(new_str)
 
 
-# Function returns start date in fixed string format for our stock market query
 def get_start_datetime(period):
+    """
+    Function returns query start datetime
+
+    This function returns query start datetime in fixed string format
+    compatibile with data provider barchart: "YYYYMMDDhhmmss+1:00"
+
+    Args:
+        period: string with requested datetime interval e.g '1d'..'2Y'
+
+    Returns:
+        Formatted string with start datetime
+    """
     start_date = datetime.datetime.today() - MARKET_TIME_DIFFS[period]
     # +0100 add Polish timezone information
     start_date_str_template = ("{year:04d}"
@@ -96,11 +123,11 @@ def get_start_datetime(period):
                                "+01:00")
 
     # start_date_str_template = ("{Year:04d}"
-    #                               "{Month:02d}"
-    #                               "{Day:02d}"
-    #                               "{Hour:02d}"
-    #                               "{Minute:02d}"
-    #                               "{Second:02d}")
+    #                            "{Month:02d}"
+    #                            "{Day:02d}"
+    #                            "{Hour:02d}"
+    #                            "{Minute:02d}"
+    #                            "{Second:02d}")
 
     start_date_str = start_date_str_template.format(year=start_date.year,
                                                     month=start_date.month,
@@ -112,8 +139,20 @@ def get_start_datetime(period):
     return start_date_str
 
 
-# Function gathers parameters for stock market query
 def prepare_request_parameters(period, symbol):
+    """
+    Function merges parameters for stock market query.
+
+    This function merges all needed stock market query into one dictonary
+    object.
+
+    Args:
+        period: string with requested datetime interval e.g '1d'..'2Y'
+        symbol: stock market symbol e.g INTC, ^USDPLN, APPL, IBM
+
+    Returns:
+        Dictonary with stock market query parameters
+    """
     request = {'apikey': API_KEY,
                'symbol': symbol,
                'startDate': get_start_datetime(period)}
@@ -122,8 +161,20 @@ def prepare_request_parameters(period, symbol):
     return request
 
 
-# Function sends stock market query and get response
 def get_web_data(period, symbol):
+    """
+    Function sends stock market query and returns query response
+
+    This function prepares stock market query and sends it to barchart data
+    provider. As a result function returns Response object with requested data.
+
+    Args:
+        period: string with requested datetime interval e.g '1d'..'2Y'
+        symbol: stock market symbol e.g INTC, ^USDPLN, APPL, IBM
+
+    Returns:
+        requests.Response object with requested data
+    """
     parameters = prepare_request_parameters(period, symbol)
     print(parameters)
     response = requests.get(URL, params=parameters)
@@ -170,25 +221,29 @@ def extract_datetime_data(time):
 def get_market_data(period):
     intc_data = get_intel_data(period)
     usdpln_data = get_currency_data(period)
+
     if (RESPONSE_STATUS_CODES['OK'] == intc_data.status_code) and \
        (RESPONSE_STATUS_CODES['OK'] == usdpln_data.status_code):
-        # TODO: try..catch exception if json fails
+        # print(intc_data)
+        # print(usdpln_data)
+
         intc_data = intc_data.json()
         usdpln_data = usdpln_data.json()
 
         # Extract only necessary data from response
-        intc_data = extract_data(['timestamp', 'close'], intc_data['results'])
+        intc_data = extract_data(['timestamp', 'close'],
+                                 intc_data['results'])
         usdpln_data = extract_data(['timestamp', 'close'],
                                    usdpln_data['results'])
 
-        # Format timestamp info from string to datatime.datetime object with
-        # timezone awareness
+        # Format timestamp info from string to datatime.datetime object
+        # with timezone awareness
         intc_data[0] = extract_datetime_data(intc_data[0])
         usdpln_data[0] = extract_datetime_data(usdpln_data[0])
 
         return intc_data, usdpln_data
     else:
-        return None
+        raise ValueError
 
 
 def find_best_fitting_element(start_data_index, data, np_dt):
@@ -305,8 +360,12 @@ def prepare_plot_data(period, intc, usdpln):
 
 
 def update_plot(period):
-    # Fetch data from stock exchange market using barchart Web APi
-    intc, usdpln = get_market_data(period)
+    # Fetch data from stock exchange market using barchart Web API
+    try:
+        intc, usdpln = get_market_data(period)
+    except ValueError:
+        print("Error!!! Something went wrong while fetching data.")
+        return
 
     # prepare plot array
     np_datetime, np_intc, np_usdpln, np_intc2pln = \
