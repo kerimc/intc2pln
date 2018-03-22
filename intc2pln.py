@@ -66,8 +66,6 @@ DELTA_DATETIMES = {'1d': datetime.timedelta(minutes=15),
                    '1Y': datetime.timedelta(days=1),
                    '2Y': datetime.timedelta(days=1)}
 
-# TODO: Add plot params for each period
-PLOT_PARAMETERS = {}
 
 SYMBOLS = {'Intel': 'INTC',
            'Currency': '^USDPLN'}
@@ -181,13 +179,35 @@ def get_web_data(period, symbol):
     return response
 
 
-# Wrapper for sending INTC query
 def get_intel_data(period):
+    """
+    Wrapper for INTC get data
+
+    This function prepares INTC query and sends it to barchart data
+    provider. As a result function returns Response object with requested data.
+
+    Args:
+        period: string with requested datetime interval e.g '1d'..'2Y'
+
+    Returns:
+        requests.Response object with INTC requested data
+    """
     return get_web_data(period, SYMBOLS['Intel'])
 
 
-# Wrapper for sending ^USDPLN query
 def get_currency_data(period):
+    """
+    Wrapper for ^USDPLN get data
+
+    This function prepares ^USDPLN query and sends it to barchart data
+    provider. As a result function returns Response object with requested data.
+
+    Args:
+        period: string with requested datetime interval e.g '1d'..'2Y'
+
+    Returns:
+        requests.Response object with ^USDPLN requested data
+    """
     return get_web_data(period, SYMBOLS['Currency'])
 
 
@@ -196,15 +216,26 @@ def extract_data(keys, data):
     return [[record[key] for record in data] for key in keys]
 
 
-# we need to convert timestamp from Web API's barchart format e.g:
-# '2018-02-13T00:00:00-06:00' to datetime.datetime acceptable format:
-# '2018-02-13T00:00:00:-0600'
 def convert_timestamp(timestamp):
+    """
+    Function converts timestamp
+
+    This function converts timestamp from Web API's barchart format e.g:
+    '2018-02-13T00:00:00-06:00' to datetime.datetime acceptable format:
+    '2018-02-13T00:00:00:-0600'
+
+    Args:
+        timestamp: string from barchart with datetime
+
+    Returns:
+        string convertable to datetime format
+    """
     # TODO: do it more pythonic
     if timestamp[-6] == '+':
         converted_timestamp = rreplace(timestamp, "+", ":+", 1)
     else:
         converted_timestamp = rreplace(timestamp, "-", ":-", 1)
+
     converted_timestamp = rreplace(converted_timestamp, ":", "", 1)
     return converted_timestamp
 
@@ -363,7 +394,7 @@ def update_plot(period):
     # Fetch data from stock exchange market using barchart Web API
     try:
         intc, usdpln = get_market_data(period)
-    except ValueError:
+    except:
         print("Error!!! Something went wrong while fetching data.")
         return
 
