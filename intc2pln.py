@@ -75,7 +75,6 @@ RESPONSE_STATUS_CODES = {'OK': 200,
                          'Internal Server Error': 500}
 
 
-# Replace from last occurance in string
 def rreplace(old_str, old, new, occurrence):
     """
     Replace from last occurance in string
@@ -168,7 +167,7 @@ def get_web_data(period, symbol):
 
     Args:
         period: string with requested datetime interval e.g '1d'..'2Y'
-        symbol: stock market symbol e.g INTC, ^USDPLN, APPL, IBM
+        symbol: string with stock market symbol e.g INTC, ^USDPLN, APPL, IBM
 
     Returns:
         requests.Response object with requested data
@@ -213,6 +212,21 @@ def get_currency_data(period):
 
 # Function reshape data format into data[key][...]
 def extract_data(keys, data):
+    """
+    Function reshape data format into data[key][...] format
+
+    This one liner function format interleaved array into [key][data] format.
+    Example: Our data array looks like this [[a:d1, b:d1, c:d1,], [a:d2, b:d2,
+    c:d2],...]. Keys are ['a','c']. Our output array will look like:
+    Output[][] = ['a':[d1,d2...],'c':[d1,d2...]]
+
+    Args:
+        key: list with columns names strings
+        data: array of interleaved data
+
+    Returns:
+        Array of column-sorted data
+    """
     return [[record[key] for record in data] for key in keys]
 
 
@@ -297,7 +311,7 @@ def find_best_fitting_element(start_data_index, data, np_dt):
                 # x while our data datetimes are from later period
                 # print("We don't enought data to find best fitting elem.")
                 # print(dt_index)
-                return_np_data = 0
+                return_np_data = None
                 return_data_index = data_index
                 break
 
